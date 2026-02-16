@@ -9,6 +9,7 @@ import zipfile
 
 app = FastAPI()
 
+# CORS para permitir llamadas desde Netlify
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -65,7 +66,4 @@ def descargar(
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-# Versión corregida con FormData
-
 
