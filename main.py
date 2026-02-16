@@ -18,6 +18,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Fix para YouTube moderno (JS runtime)
+yt_dlp.utils._jsinterp.JSInterpreter._js_runtime = "node"
+
 @app.post("/descargar")
 def descargar(
     url: str = Form(...),
@@ -28,11 +31,13 @@ def descargar(
         carpeta_id = f"{carpeta}_{uuid.uuid4()}"
         os.makedirs(carpeta_id, exist_ok=True)
 
+        # Extraer info
         with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
             info = ydl.extract_info(url, download=False)
 
         lista = info["entries"] if "entries" in info else [info]
 
+        # Config según tipo
         if tipo in ["playlist_audio", "audio"]:
             opciones = {
                 "format": "bestaudio/best",
@@ -49,10 +54,15 @@ def descargar(
                 "outtmpl": f"{carpeta_id}/%(title)s.%(ext)s"
             }
 
+        # Descargar
         with yt_dlp.YoutubeDL(opciones) as ydl:
             for entry in lista:
-                ydl.download([entry["webpage_url"]])
+                try:
+                    ydl.download([entry["webpage_url"]])
+                except Exception as e:
+                    print("Error descargando:", e)
 
+        # Crear ZIP
         zip_name = f"{carpeta_id}.zip"
         with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(carpeta_id):
@@ -66,4 +76,3 @@ def descargar(
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
