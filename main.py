@@ -18,9 +18,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Fix para YouTube moderno (JS runtime)
-yt_dlp.utils._jsinterp.JSInterpreter._js_runtime = "node"
-
 @app.post("/descargar")
 def descargar(
     url: str = Form(...),
@@ -28,16 +25,18 @@ def descargar(
     carpeta: str = Form("Descargas_Pinalo")
 ):
     try:
+        # Crear carpeta temporal única
         carpeta_id = f"{carpeta}_{uuid.uuid4()}"
         os.makedirs(carpeta_id, exist_ok=True)
 
-        # Extraer info
+        # Extraer información del video/playlist
         with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
             info = ydl.extract_info(url, download=False)
 
+        # Si es playlist, entries; si no, lista con un solo video
         lista = info["entries"] if "entries" in info else [info]
 
-        # Config según tipo
+        # Configuración según tipo
         if tipo in ["playlist_audio", "audio"]:
             opciones = {
                 "format": "bestaudio/best",
@@ -54,7 +53,7 @@ def descargar(
                 "outtmpl": f"{carpeta_id}/%(title)s.%(ext)s"
             }
 
-        # Descargar
+        # Descargar cada video
         with yt_dlp.YoutubeDL(opciones) as ydl:
             for entry in lista:
                 try:
@@ -70,8 +69,10 @@ def descargar(
                     ruta = os.path.join(root, file)
                     zipf.write(ruta, os.path.relpath(ruta, carpeta_id))
 
+        # Borrar carpeta temporal
         shutil.rmtree(carpeta_id)
 
+        # Enviar ZIP
         return FileResponse(zip_name, filename=zip_name)
 
     except Exception as e:
